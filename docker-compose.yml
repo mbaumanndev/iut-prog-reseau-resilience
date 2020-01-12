@@ -1,0 +1,26 @@
+version: '3.4'
+
+services:
+    webmvc:
+        restart: 'no'
+        image: webmvc
+        build:
+            context: .
+            dockerfile: ./src/IutAmiens.ProgReseau.Resilience/Dockerfile
+        environment:
+            - ASPNETCORE_ENVIRONMENT=Development
+            - ASPNETCORE_URLS=http://0.0.0.0:80
+        ports:
+            - 5000:80
+
+    webapi:
+        restart: 'no'
+        image: webapi
+        build:
+            context: .
+            dockerfile: ./src/IutAmiens.ProgReseau.SampleApi/Dockerfile
+        environment:
+            - ASPNETCORE_ENVIRONMENT=Development
+            - ASPNETCORE_URLS=http://0.0.0.0:80
+        ports:
+            - 5001:80
