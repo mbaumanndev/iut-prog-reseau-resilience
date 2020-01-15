@@ -42,6 +42,7 @@ namespace IutAmiens.ProgReseau.Resilience
                 context.BaseAddress = new Uri("http://webapi");
             })
                 .AddTypedClient(RestService.For<IWeatherService>)
+                /*
                 .AddTransientHttpErrorPolicy(builder => builder.WaitAndRetryAsync(new[]
                 {
                     TimeSpan.FromSeconds(1),
@@ -51,7 +52,9 @@ namespace IutAmiens.ProgReseau.Resilience
                 .AddTransientHttpErrorPolicy(builder => builder.CircuitBreakerAsync(
                     handledEventsAllowedBeforeBreaking: 3,
                     durationOfBreak: TimeSpan.FromSeconds(30)
-                ));
+                ))
+                */
+            ;
         }
 
         public void Configure(IApplicationBuilder p_App, IWebHostEnvironment p_Env)
