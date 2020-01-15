@@ -5,8 +5,12 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Polly;
+using Polly.Caching;
+using Polly.Caching.Memory;
+using Polly.Registry;
 using Refit;
 using System;
+using System.Net.Http;
 
 namespace IutAmiens.ProgReseau.Resilience
 {
@@ -35,6 +39,11 @@ namespace IutAmiens.ProgReseau.Resilience
 
         public void ConfigureServices(IServiceCollection p_Services)
         {
+            p_Services.AddMemoryCache();
+            p_Services.AddSingleton<IAsyncCacheProvider, MemoryCacheProvider>();
+
+            IPolicyRegistry<string> v_Registry = p_Services.AddPolicyRegistry();
+
             p_Services.AddControllersWithViews();
 
             p_Services.AddHttpClient("weather", context =>
@@ -42,7 +51,8 @@ namespace IutAmiens.ProgReseau.Resilience
                 context.BaseAddress = new Uri("http://webapi");
             })
                 .AddTypedClient(RestService.For<IWeatherService>)
-                /*
+                .AddPolicyHandlerFromRegistry(PolicySelector)
+                
                 .AddTransientHttpErrorPolicy(builder => builder.WaitAndRetryAsync(new[]
                 {
                     TimeSpan.FromSeconds(1),
@@ -53,12 +63,28 @@ namespace IutAmiens.ProgReseau.Resilience
                     handledEventsAllowedBeforeBreaking: 3,
                     durationOfBreak: TimeSpan.FromSeconds(30)
                 ))
-                */
             ;
         }
 
-        public void Configure(IApplicationBuilder p_App, IWebHostEnvironment p_Env)
+        private IAsyncPolicy<HttpResponseMessage> PolicySelector(
+            IReadOnlyPolicyRegistry<string> p_Registry,
+            HttpRequestMessage p_Request) {
+                return p_Registry.Get<IAsyncPolicy<HttpResponseMessage>>("CachingPolicy");
+            }
+
+        public void Configure(
+            IApplicationBuilder p_App,
+            IWebHostEnvironment p_Env,
+            IAsyncCacheProvider p_CacheProvider,
+            IPolicyRegistry<string> p_Registry)
         {
+            AsyncCachePolicy<HttpResponseMessage> v_Policy =
+                Policy.CacheAsync<HttpResponseMessage>(
+                    p_CacheProvider,
+                    TimeSpan.FromSeconds(30)
+                );
+            p_Registry.Add("CachingPolicy", v_Policy);
+
             Services = p_App.ApplicationServices;
 
             if (p_Env.IsDevelopment())

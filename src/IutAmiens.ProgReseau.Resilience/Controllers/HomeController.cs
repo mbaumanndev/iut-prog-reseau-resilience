@@ -3,7 +3,10 @@ using IutAmiens.ProgReseau.Resilience.Services;
 using IutAmiens.ProgReseau.Shared;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
+using Polly;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -22,13 +25,34 @@ namespace IutAmiens.ProgReseau.Resilience.Controllers
         }
 
         [Route("/")]
-        public async Task<IActionResult> IndexAsync()
+        public async Task<IActionResult> IndexAsync(
+            [FromServices] IHttpClientFactory p_Factory
+        )
         {
             WeatherForecastViewModel v_Model = new WeatherForecastViewModel();
 
             try
             {
-                v_Model.Forecast = await m_WeatherService.GetWeatherForecastAsync();
+                string v_Endpoint = "WeatherForecast";
+                var v_Client = p_Factory.CreateClient("weather");
+
+                var v_Request = new HttpRequestMessage(
+                    HttpMethod.Get,
+                    new Uri(v_Client.BaseAddress + v_Endpoint)
+                );
+                m_Logger.LogInformation("URL: " + new Uri(v_Client.BaseAddress + v_Endpoint));
+                v_Request.SetPolicyExecutionContext(
+                    new Context("GetWeather")
+                );
+                var v_Response = await v_Client.SendAsync(v_Request);
+
+                if (!v_Response.IsSuccessStatusCode)
+                    throw new ApplicationException("Echec requête");
+                
+                v_Model.Forecast = JsonConvert.DeserializeObject<IEnumerable<WeatherForecast>>(
+                    await v_Response.Content.ReadAsStringAsync()
+                );
+                //v_Model.Forecast = await m_WeatherService.GetWeatherForecastAsync();
             }
             catch (Exception v_Ex)
             {
